@@ -1,0 +1,506 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Invoice Generator</title>
+<script src="html2pdf.bundle.min.js"></script>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #555;
+    --line: #d9d9d9;
+    --head-bg: #f6f6f6;
+    --brand: #2563eb;
+    --panel: #ffffff;
+    --app-bg: #eef1f5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--app-bg);
+    color: var(--ink);
+  }
+  .app {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 24px;
+    align-items: start;
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  @media (max-width: 980px) {
+    .app { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Controls panel ---------- */
+  .controls {
+    background: var(--panel);
+    border: 1px solid #e2e6ea;
+    border-radius: 12px;
+    padding: 20px;
+    position: sticky;
+    top: 24px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+  .controls h1 {
+    font-size: 18px;
+    margin: 0 0 4px;
+  }
+  .controls .sub {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: 0 0 18px;
+  }
+  fieldset {
+    border: 1px solid #e6e9ee;
+    border-radius: 10px;
+    padding: 14px 14px 4px;
+    margin: 0 0 16px;
+  }
+  legend {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--brand);
+    padding: 0 6px;
+  }
+  label.fld {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 12px;
+  }
+  label.fld span { display: block; margin-bottom: 4px; }
+  input, textarea {
+    width: 100%;
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 9px;
+    border: 1px solid #cdd3da;
+    border-radius: 7px;
+    background: #fff;
+    color: var(--ink);
+  }
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+  }
+  textarea { resize: vertical; line-height: 1.4; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* line items in the form */
+  .item {
+    border: 1px solid #e6e9ee;
+    border-radius: 9px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+  }
+  .item .item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .item .item-head strong { font-size: 12px; color: var(--muted); }
+  .btn {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: background .15s, opacity .15s;
+  }
+  .btn-primary { background: var(--brand); color: #fff; width: 100%; }
+  .btn-primary:hover { background: #1d4fd0; }
+  .btn-add { background: #eaf0ff; color: var(--brand); width: 100%; margin-bottom: 16px; }
+  .btn-add:hover { background: #dde7ff; }
+  .btn-del {
+    background: transparent;
+    color: #c0392b;
+    padding: 4px 8px;
+    font-size: 12px;
+    border: 1px solid #ecc7c3;
+    border-radius: 6px;
+  }
+  .btn-del:hover { background: #fdece9; }
+  .btn-del:disabled { opacity: .4; cursor: not-allowed; }
+  .fname {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin: 6px 0 14px;
+    word-break: break-all;
+    background: #f4f6f8;
+    padding: 8px 10px;
+    border-radius: 7px;
+  }
+  .fname code { color: #333; }
+
+  /* ---------- Invoice preview ---------- */
+  .preview-wrap { display: flex; justify-content: center; }
+  #invoice {
+    width: 794px;              /* A4 @96dpi */
+    min-height: 1120px;        /* just under one A4 page to avoid a blank overflow page */
+    background: #fff;
+    color: var(--ink);
+    padding: 70px 72px 56px;
+    box-shadow: 0 6px 30px rgba(0,0,0,.12);
+    font-size: 14px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .inv-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .inv-name { font-size: 26px; font-weight: 700; margin: 0; }
+  .inv-title { font-size: 26px; font-weight: 700; letter-spacing: .04em; }
+  .sender { margin-top: 14px; color: var(--ink); white-space: pre-line; }
+  .sender .email { }
+
+  .meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 60px;
+  }
+  .bill-to .bt-label { font-weight: 700; margin-bottom: 6px; }
+  .bill-to .bt-body { white-space: pre-line; }
+  .meta-right { text-align: right; }
+  .meta-right table { border-collapse: collapse; margin-left: auto; }
+  .meta-right td { padding: 2px 0; }
+  .meta-right td.k { font-weight: 700; padding-right: 28px; text-align: right; }
+  .meta-right td.v { text-align: right; min-width: 90px; }
+
+  table.items {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 48px;
+  }
+  table.items thead th {
+    background: var(--head-bg);
+    border: 1px solid var(--line);
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  table.items tbody td {
+    border: 1px solid var(--line);
+    padding: 13px 16px;
+    vertical-align: top;
+  }
+  table.items td.desc { width: 72%; }
+  table.items td.amt { width: 28%; text-align: right; white-space: nowrap; }
+  .desc .detail { color: var(--ink); }
+
+  table.items tr.total td {
+    border: none;
+    padding: 16px 16px;
+  }
+  table.items tr.total td.total-label {
+    text-align: right;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: .03em;
+  }
+  table.items tr.total td.total-val {
+    border: 1px solid var(--line);
+    text-align: right;
+    font-size: 19px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .terms { margin-top: auto; padding-top: 60px; }
+  .terms h3 { font-size: 14px; font-weight: 700; margin: 0 0 6px; }
+  .terms p { margin: 0; white-space: pre-line; }
+
+  @media print {
+    .controls { display: none; }
+    body { background: #fff; }
+    .app { display: block; padding: 0; }
+    #invoice { box-shadow: none; }
+  }
+</style>
+
+<div class="app">
+  <!-- ===================== CONTROLS ===================== -->
+  <div class="controls">
+    <h1>Invoice Generator</h1>
+    <p class="sub">Fill in the details, then download a PDF that matches your invoice format exactly.</p>
+
+    <fieldset>
+      <legend>Your details</legend>
+      <label class="fld"><span>Name</span>
+        <input id="senderName" value="Ram Chaturvedi" />
+      </label>
+      <label class="fld"><span>Address</span>
+        <textarea id="senderAddress" rows="2">D-194, Jagdish Marg, Bani Park,
+Jaipur, Rajasthan, India 302016</textarea>
+      </label>
+      <label class="fld"><span>Email</span>
+        <input id="senderEmail" value="ramchaturvedi007@gmail.com" />
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Bill To</legend>
+      <label class="fld"><span>Client name</span>
+        <input id="clientName" value="Komprise Inc." />
+      </label>
+      <label class="fld"><span>Client details (one item per line)</span>
+        <textarea id="clientBody" rows="5">1901 S Bascom Ave #500
+Campbell, CA
+95008
++1.669.254.3100
+accounting@komprise.com</textarea>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Invoice info</legend>
+      <div class="row2">
+        <label class="fld"><span>Invoice #</span>
+          <input id="invNumber" value="2457" />
+        </label>
+        <label class="fld"><span>Invoice date</span>
+          <input id="invDate" type="date" value="2026-07-31" />
+        </label>
+      </div>
+      <label class="fld"><span>Invoice title (used in filename)</span>
+        <input id="invTitle" value="PPC/SEO/GEO Consultancy" />
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Line items</legend>
+      <div id="itemList"></div>
+      <button class="btn btn-add" id="addItem" type="button">+ Add item</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Terms &amp; Conditions</legend>
+      <label class="fld"><span>Terms text</span>
+        <textarea id="terms" rows="2">Payment is due within 30 days</textarea>
+      </label>
+    </fieldset>
+
+    <div class="fname">Will download as:<br /><code id="fnamePreview"></code></div>
+    <button class="btn btn-primary" id="download" type="button">Download PDF</button>
+  </div>
+
+  <!-- ===================== PREVIEW ===================== -->
+  <div class="preview-wrap">
+    <div id="invoice">
+      <div class="inv-top">
+        <h2 class="inv-name" id="pName"></h2>
+        <div class="inv-title">INVOICE</div>
+      </div>
+      <div class="sender" id="pSender"></div>
+
+      <div class="meta">
+        <div class="bill-to">
+          <div class="bt-label">Bill To</div>
+          <div class="bt-body" id="pClient"></div>
+        </div>
+        <div class="meta-right">
+          <table>
+            <tr><td class="k">Invoice #</td><td class="v" id="pNumber"></td></tr>
+            <tr><td class="k">Invoice Date</td><td class="v" id="pDate"></td></tr>
+          </table>
+        </div>
+      </div>
+
+      <table class="items">
+        <thead>
+          <tr><th>Description</th><th>Amount</th></tr>
+        </thead>
+        <tbody id="pItems"></tbody>
+        <tfoot>
+          <tr class="total">
+            <td class="total-label">TOTAL</td>
+            <td class="total-val" id="pTotal"></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="terms">
+        <h3>Terms &amp; Conditions</h3>
+        <p id="pTerms"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- default line items (from the sample invoice) ----
+  var items = [
+    { desc: "PPC/SEO/GEO Consultancy for July'26", detail: "12 Hours x $50/hour", amount: 600 },
+    { desc: "Standard SEO Backlinks", detail: "", amount: 300 },
+    { desc: "Additional Hours for GEO", detail: "2 Hours x $50/hour", amount: 100 }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var MONTHS = ["January","February","March","April","May","June",
+                "July","August","September","October","November","December"];
+
+  function esc(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+  function money(n) {
+    return (isFinite(n) ? n : 0).toLocaleString("en-US",
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  // date input value is yyyy-mm-dd -> display dd/mm/yyyy
+  function displayDate(v) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || "");
+    if (!m) return "";
+    return m[3] + "/" + m[2] + "/" + m[1];
+  }
+  function dateParts(v) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || "");
+    if (!m) return { month: "", year: "" };
+    return { month: MONTHS[parseInt(m[2], 10) - 1] || "", year: m[1] };
+  }
+  function slug(s) {
+    return String(s).trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  }
+
+  // ---------- render the editable item rows in the form ----------
+  function renderItemForm() {
+    var wrap = $("itemList");
+    wrap.innerHTML = "";
+    items.forEach(function (it, i) {
+      var div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML =
+        '<div class="item-head"><strong>Item ' + (i + 1) + '</strong>' +
+        '<button class="btn-del" type="button" data-del="' + i + '"' +
+        (items.length <= 1 ? ' disabled' : '') + '>Delete</button></div>' +
+        '<label class="fld"><span>Description</span>' +
+        '<input data-f="desc" data-i="' + i + '" value="' + esc(it.desc) + '" /></label>' +
+        '<label class="fld"><span>Detail line (optional)</span>' +
+        '<input data-f="detail" data-i="' + i + '" value="' + esc(it.detail) + '" /></label>' +
+        '<label class="fld"><span>Amount (USD)</span>' +
+        '<input data-f="amount" data-i="' + i + '" type="number" step="0.01" value="' + it.amount + '" /></label>';
+      wrap.appendChild(div);
+    });
+  }
+
+  // ---------- render the invoice preview ----------
+  function render() {
+    $("pName").textContent = $("senderName").value;
+
+    var senderHtml = esc($("senderAddress").value) + "\n" + esc($("senderEmail").value);
+    $("pSender").innerHTML = senderHtml.replace(/\n/g, "<br />");
+
+    $("pClient").innerHTML =
+      (esc($("clientName").value) + "\n" + esc($("clientBody").value)).replace(/\n/g, "<br />");
+
+    $("pNumber").textContent = $("invNumber").value;
+    $("pDate").textContent = displayDate($("invDate").value);
+
+    var tbody = $("pItems");
+    tbody.innerHTML = "";
+    var total = 0;
+    items.forEach(function (it) {
+      total += (parseFloat(it.amount) || 0);
+      var tr = document.createElement("tr");
+      var d = esc(it.desc);
+      if (it.detail && it.detail.trim() !== "") {
+        d += '<br /><span class="detail">' + esc(it.detail) + "</span>";
+      }
+      tr.innerHTML = '<td class="desc">' + d + '</td>' +
+                     '<td class="amt">' + money(parseFloat(it.amount) || 0) + '</td>';
+      tbody.appendChild(tr);
+    });
+    $("pTotal").textContent = "$" + money(total) + " USD";
+
+    $("pTerms").textContent = $("terms").value;
+
+    updateFilename();
+  }
+
+  function buildFilename() {
+    var dp = dateParts($("invDate").value);
+    var title = slug($("invTitle").value);
+    var num = slug($("invNumber").value);
+    var titlePart = title ? title + "_Invoice" : "Invoice";
+    return dp.month + "_" + dp.year + "__" + titlePart + "__" + num + ".pdf";
+  }
+  function updateFilename() {
+    $("fnamePreview").textContent = buildFilename();
+  }
+
+  // ---------- events ----------
+  // static inputs
+  ["senderName","senderAddress","senderEmail","clientName","clientBody",
+   "invNumber","invDate","invTitle","terms"].forEach(function (id) {
+    $(id).addEventListener("input", render);
+  });
+
+  // dynamic item inputs (event delegation)
+  $("itemList").addEventListener("input", function (e) {
+    var t = e.target;
+    var f = t.getAttribute("data-f");
+    if (!f) return;
+    var i = parseInt(t.getAttribute("data-i"), 10);
+    items[i][f] = (f === "amount") ? t.value : t.value;
+    render();
+  });
+  $("itemList").addEventListener("click", function (e) {
+    var del = e.target.getAttribute("data-del");
+    if (del === null) return;
+    if (items.length <= 1) return;
+    items.splice(parseInt(del, 10), 1);
+    renderItemForm();
+    render();
+  });
+  $("addItem").addEventListener("click", function () {
+    items.push({ desc: "", detail: "", amount: 0 });
+    renderItemForm();
+    render();
+  });
+
+  // ---------- PDF download ----------
+  $("download").addEventListener("click", function () {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = "Generating…";
+    var el = $("invoice");
+    var opt = {
+      margin: 0,
+      filename: buildFilename(),
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 3, useCORS: true, backgroundColor: "#ffffff" },
+      jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["avoid-all"] }
+    };
+    html2pdf().set(opt).from(el).save().then(function () {
+      btn.disabled = false;
+      btn.textContent = "Download PDF";
+    }).catch(function () {
+      btn.disabled = false;
+      btn.textContent = "Download PDF";
+    });
+  });
+
+  // ---------- init ----------
+  renderItemForm();
+  render();
+})();
+</script>
