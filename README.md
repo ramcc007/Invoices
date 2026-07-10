@@ -33,3 +33,9 @@ This is a static site — no configuration needed.
 - `index.html` — the app (form, live preview, styling, and logic).
 - `html2pdf.bundle.min.js` — vendored PDF library (html2pdf.js v0.10.2), so the
   tool works offline with no external CDN dependency.
+- `favicon.svg`, `favicon.ico`, `favicon-16.png`, `favicon-32.png`,
+  `apple-touch-icon.png`, `logo.png` — browser tab icon / app logo.
+- `robots.txt`, `vercel.json` — this tool is intentionally kept out of search
+  engines: `<meta name="robots">` on the page, `robots.txt` disallowing all
+  crawlers, and an `X-Robots-Tag` header sent on every route via
+  `vercel.json`, so it isn't indexed by Google or anywhere else.
