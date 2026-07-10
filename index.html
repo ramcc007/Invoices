@@ -1,5 +1,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no" />
 <title>Invoice Generator</title>
 <script src="html2pdf.bundle.min.js"></script>
 <style>
@@ -179,6 +180,28 @@
   .meta-right td { padding: 2px 0; }
   .meta-right td.k { font-weight: 700; padding-right: 28px; text-align: right; }
   .meta-right td.v { text-align: right; min-width: 90px; }
+
+  /* ---------- Lock down text so browser/OS "smart" auto-linking of
+     addresses, phone numbers, and emails (which injects its own inline
+     font-size + underline) can never resize or restyle the invoice ---------- */
+  #invoice a,
+  #invoice font,
+  #invoice u {
+    all: unset !important;
+  }
+  .sender, .sender *,
+  .bill-to .bt-body, .bill-to .bt-body *,
+  .meta-right td.v, .meta-right td.v *,
+  table.items tbody td, table.items tbody td *,
+  .terms p, .terms p * {
+    font-size: 14px !important;
+    font-family: inherit !important;
+    font-weight: 400 !important;
+    line-height: 1.5 !important;
+    text-decoration: none !important;
+    color: var(--ink) !important;
+    background: transparent !important;
+  }
 
   table.items {
     width: 100%;
